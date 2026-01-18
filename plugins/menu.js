@@ -4,21 +4,15 @@ module.exports = {
     const text = `
 🤖 *wabot-chuck*
 ────────────────
-📝 *Notes Commands:*
+📝 *Notes Commands Group:*
 !save <nama-notes> - Simpan pesan/media sebagai notes (reply pesan/gambar/video/file)
 !notes - Lihat daftar notes
 #<nama-notes> - Tampilkan notes
 !clear <nama-notes> - Hapus notes
 
-💡 *Fitur Baru:*
-✅ Simpan gambar + caption
-✅ Simpan video + caption
-✅ Simpan file/dokumen + caption
-✅ Simpan teks biasa
+📝 *Notes Commands Umum:*
+!sticker - Kirim atau reply gambar untuk mengubahnya menjadi stiker
 
-📌 *Contoh:*
-- Reply gambar: !save foto-penting
-- Panggil: #foto-penting
     `
     await sock.sendMessage(from, { text })
   }

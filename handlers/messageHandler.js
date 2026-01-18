@@ -13,6 +13,9 @@ module.exports = async (sock, msg) => {
     const body =
       m.message.conversation ||
       m.message.extendedTextMessage?.text ||
+      m.message.imageMessage?.caption ||
+      m.message.videoMessage?.caption ||
+      m.message.documentMessage?.caption ||
       ""
 
     // Handle # prefix for notes
