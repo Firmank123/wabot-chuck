@@ -43,13 +43,23 @@ module.exports = {
                          quotedMessage.videoMessage?.caption ||
                          "Media message"
 
-      // Save to database
-      const stmt = db.prepare(`
-        INSERT INTO notes (group_id, note_name, note_content, created_at)
-        VALUES (?, ?, ?, ?)
-      `)
-      
-      stmt.run(from, noteName, noteContent, Date.now())
+      // Save to Supabase
+      const { data, error } = await db
+        .from('notes')
+        .insert([
+          {
+            group_id: from,
+            note_name: noteName,
+            note_content: noteContent,
+            created_at: new Date().toISOString()
+          }
+        ])
+
+      if (error) {
+        console.error('Supabase error:', error)
+        await sock.sendMessage(from, { text: "❌ Terjadi kesalahan saat menyimpan notes." })
+        return
+      }
 
       await sock.sendMessage(from, { 
         text: `✅ Notes berhasil disimpan!\n\n📝 Nama: ${noteName}\n\nGunakan #${noteName} untuk melihat notes ini.` 

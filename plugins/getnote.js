@@ -4,17 +4,20 @@ module.exports = {
   command: "notes",
   execute: async (sock, msg, args, { from, sender }) => {
     try {
-      // Get all notes for this group/chat
-      const stmt = db.prepare(`
-        SELECT note_name, created_at, SUBSTR(note_content, 1, 30) as preview
-        FROM notes
-        WHERE group_id = ?
-        ORDER BY created_at DESC
-      `)
-      
-      const notes = stmt.all(from)
+      // Get all notes for this group/chat from Supabase
+      const { data: notes, error } = await db
+        .from('notes')
+        .select('note_name, created_at, note_content')
+        .eq('group_id', from)
+        .order('created_at', { ascending: false })
 
-      if (notes.length === 0) {
+      if (error) {
+        console.error('Supabase error:', error)
+        await sock.sendMessage(from, { text: "❌ Terjadi kesalahan saat mengambil daftar notes." })
+        return
+      }
+
+      if (!notes || notes.length === 0) {
         await sock.sendMessage(from, { 
           text: "📝 Belum ada notes tersimpan.\n\nGunakan !save untuk menyimpan pesan sebagai notes." 
         })
@@ -26,6 +29,7 @@ module.exports = {
       notes.forEach((note, index) => {
         const date = new Date(note.created_at)
         const dateStr = date.toLocaleDateString('id-ID')
+        const preview = note.note_content.substring(0, 30)
         text += `${index + 1}. #${note.note_name}\n`
       })
 

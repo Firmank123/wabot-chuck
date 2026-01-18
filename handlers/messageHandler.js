@@ -20,17 +20,23 @@ module.exports = async (sock, msg) => {
       const noteName = body.slice(1).trim()
       
       if (noteName) {
-        const stmt = db.prepare(`
-          SELECT note_content, created_at
-          FROM notes
-          WHERE group_id = ? AND note_name = ?
-          ORDER BY created_at DESC
-          LIMIT 1
-        `)
+        // Get note from Supabase
+        const { data: notes, error } = await db
+          .from('notes')
+          .select('note_content, created_at')
+          .eq('group_id', from)
+          .eq('note_name', noteName)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (error) {
+          console.error('Supabase error:', error)
+          await sock.sendMessage(from, { text: "❌ Terjadi kesalahan saat mengambil notes." })
+          return
+        }
         
-        const note = stmt.get(from, noteName)
-        
-        if (note) {
+        if (notes && notes.length > 0) {
+          const note = notes[0]
           const date = new Date(note.created_at)
           const dateStr = date.toLocaleString('id-ID')
           

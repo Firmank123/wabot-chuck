@@ -1,34 +1,17 @@
-const Database = require("better-sqlite3")
-const db = new Database("./database/data.sqlite")
+require('dotenv').config()
+const { createClient } = require('@supabase/supabase-js')
 
-db.prepare(`
-CREATE TABLE IF NOT EXISTS warns (
-  id TEXT,
-  group_id TEXT,
-  count INTEGER
-)
-`).run()
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_KEY
 
-try {
-  const tableInfo = db.prepare(`PRAGMA table_info(notes)`).all()
-  const hasOldSchema = tableInfo.some(col => col.name === 'user_id')
-  
-  if (hasOldSchema) {
-    console.log('Migrating notes table from user_id to group_id...')
-    db.prepare(`DROP TABLE notes`).run()
-  }
-} catch (err) {
-  // Table doesn't exist yet, which is fine
+if (!supabaseUrl || !supabaseKey) {
+  console.error('ERROR: SUPABASE_URL and SUPABASE_KEY must be set in .env file')
+  process.exit(1)
 }
 
-db.prepare(`
-CREATE TABLE IF NOT EXISTS notes (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  group_id TEXT NOT NULL,
-  note_name TEXT NOT NULL,
-  note_content TEXT NOT NULL,
-  created_at INTEGER NOT NULL
-)
-`).run()
+const supabase = createClient(supabaseUrl, supabaseKey)
 
-module.exports = db
+console.log('Supabase initialized successfully')
+
+module.exports = supabase

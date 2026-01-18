@@ -28,29 +28,39 @@ module.exports = {
         return
       }
 
-      // Check if note exists
-      const checkStmt = db.prepare(`
-        SELECT id, note_name
-        FROM notes
-        WHERE group_id = ? AND note_name = ?
-      `)
+      // Check if note exists in Supabase
+      const { data: existingNotes, error: checkError } = await db
+        .from('notes')
+        .select('id')
+        .eq('group_id', from)
+        .eq('note_name', noteName)
+        .limit(1)
+
+      if (checkError) {
+        console.error('Supabase error:', checkError)
+        await sock.sendMessage(from, { text: "❌ Terjadi kesalahan saat memeriksa notes." })
+        return
+      }
       
-      const note = checkStmt.get(from, noteName)
-      
-      if (!note) {
+      if (!existingNotes || existingNotes.length === 0) {
         await sock.sendMessage(from, { 
           text: `❌ Notes "${noteName}" tidak ditemukan.\n\nGunakan !notes untuk melihat daftar notes.` 
         })
         return
       }
 
-      // Delete the note
-      const deleteStmt = db.prepare(`
-        DELETE FROM notes
-        WHERE group_id = ? AND note_name = ?
-      `)
-      
-      deleteStmt.run(from, noteName)
+      // Delete the note from Supabase
+      const { error: deleteError } = await db
+        .from('notes')
+        .delete()
+        .eq('group_id', from)
+        .eq('note_name', noteName)
+
+      if (deleteError) {
+        console.error('Supabase error:', deleteError)
+        await sock.sendMessage(from, { text: "❌ Terjadi kesalahan saat menghapus notes." })
+        return
+      }
 
       await sock.sendMessage(from, { 
         text: `✅ Notes "${noteName}" berhasil dihapus!` 
