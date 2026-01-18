@@ -1,4 +1,5 @@
 const db = require('../database/db')
+const { downloadMediaMessage } = require('@whiskeysockets/baileys')
 
 module.exports = {
   command: "save",
@@ -36,24 +37,97 @@ module.exports = {
         return
       }
 
+      // Prepare note data
+      let noteData = {
+        group_id: from,
+        note_name: noteName,
+        created_at: new Date().toISOString()
+      }
+
       // Get the content from quoted message
-      const noteContent = quotedMessage.conversation || 
-                         quotedMessage.extendedTextMessage?.text ||
-                         quotedMessage.imageMessage?.caption ||
-                         quotedMessage.videoMessage?.caption ||
-                         "Media message"
+      const textContent = quotedMessage.conversation || 
+                         quotedMessage.extendedTextMessage?.text
+
+      // Handle different message types
+      if (quotedMessage.imageMessage) {
+        // Image message
+        const caption = quotedMessage.imageMessage.caption || ""
+        noteData.media_type = 'image'
+        noteData.media_mimetype = quotedMessage.imageMessage.mimetype
+        noteData.caption = caption
+        noteData.note_content = caption || "📷 Gambar"
+        
+        // Download and convert to base64
+        try {
+          const buffer = await downloadMediaMessage(
+            { message: { imageMessage: quotedMessage.imageMessage } },
+            'buffer',
+            {},
+            { 
+              logger: console,
+              reuploadRequest: sock.updateMediaMessage
+            }
+          )
+          noteData.media_buffer = buffer.toString('base64')
+        } catch (err) {
+          console.error('Error downloading image:', err)
+        }
+      } else if (quotedMessage.videoMessage) {
+        // Video message
+        const caption = quotedMessage.videoMessage.caption || ""
+        noteData.media_type = 'video'
+        noteData.media_mimetype = quotedMessage.videoMessage.mimetype
+        noteData.caption = caption
+        noteData.note_content = caption || "🎥 Video"
+        
+        // Download and convert to base64
+        try {
+          const buffer = await downloadMediaMessage(
+            { message: { videoMessage: quotedMessage.videoMessage } },
+            'buffer',
+            {},
+            { 
+              logger: console,
+              reuploadRequest: sock.updateMediaMessage
+            }
+          )
+          noteData.media_buffer = buffer.toString('base64')
+        } catch (err) {
+          console.error('Error downloading video:', err)
+        }
+      } else if (quotedMessage.documentMessage) {
+        // Document/File message
+        const fileName = quotedMessage.documentMessage.fileName || "file"
+        const caption = quotedMessage.documentMessage.caption || ""
+        noteData.media_type = 'document'
+        noteData.media_mimetype = quotedMessage.documentMessage.mimetype
+        noteData.caption = caption || fileName
+        noteData.note_content = caption || `📎 ${fileName}`
+        
+        // Download and convert to base64
+        try {
+          const buffer = await downloadMediaMessage(
+            { message: { documentMessage: quotedMessage.documentMessage } },
+            'buffer',
+            {},
+            { 
+              logger: console,
+              reuploadRequest: sock.updateMediaMessage
+            }
+          )
+          noteData.media_buffer = buffer.toString('base64')
+        } catch (err) {
+          console.error('Error downloading document:', err)
+        }
+      } else {
+        // Text only message
+        noteData.note_content = textContent || "Pesan kosong"
+      }
 
       // Save to Supabase
       const { data, error } = await db
         .from('notes')
-        .insert([
-          {
-            group_id: from,
-            note_name: noteName,
-            note_content: noteContent,
-            created_at: new Date().toISOString()
-          }
-        ])
+        .insert([noteData])
 
       if (error) {
         console.error('Supabase error:', error)
