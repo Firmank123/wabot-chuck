@@ -1,6 +1,9 @@
 const config = require("../config")
 const db = require("../database/db")
 
+// Cache plugins on module load instead of requiring every message
+const plugins = require("../plugins")
+
 module.exports = async (sock, msg) => {
   try {
     const m = msg.messages[0]
@@ -91,11 +94,10 @@ module.exports = async (sock, msg) => {
 
     console.log(`Command: ${command} from ${sender}`)
 
-    const plugins = require("../plugins")
-    for (const plugin of plugins) {
-      if (plugin.command === command) {
-        await plugin.execute(sock, m, args, { from, sender, isGroup })
-      }
+    // Direct O(1) lookup instead of O(n) loop
+    const plugin = plugins[command]
+    if (plugin) {
+      await plugin.execute(sock, m, args, { from, sender, isGroup })
     }
   } catch (err) {
     console.error(err)
