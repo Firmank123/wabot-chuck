@@ -94,6 +94,14 @@ module.exports = async (sock, msg) => {
 
     console.log(`Command: ${command} from ${sender}`)
 
+    // Check if command is used in group (exception for menu command)
+    if (!isGroup && command !== 'menu') {
+      await sock.sendMessage(from, { 
+        text: "❌ Bot ini hanya dapat digunakan di grup!\n\n📝 Cara menggunakan:\n1. Tambahkan bot ke grup\n2. Gunakan command di grup\n\nKetik !menu untuk melihat daftar command." 
+      })
+      return
+    }
+
     // Direct O(1) lookup instead of O(n) loop
     const plugin = plugins[command]
     if (plugin) {
