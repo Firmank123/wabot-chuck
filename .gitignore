@@ -39,6 +39,3 @@ desktop.ini
 tmp/
 temp/
 *.tmp
-
-# Config
-config.js
