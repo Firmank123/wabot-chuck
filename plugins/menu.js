@@ -4,12 +4,11 @@ module.exports = {
     const text = `
 🤖 *wabot-chuck*
 ────────────────
-!menu
-!ping
-!warn @user
-!kick @user
-!antilink on/off
-!rules
+!menu - Tampilkan menu
+!save <nama-notes> - Simpan pesan sebagai notes (reply pesan)
+!notes - Lihat daftar notes
+#<nama-notes> - Tampilkan notes
+!clear <nama-notes> - Hapus notes
     `
     await sock.sendMessage(from, { text })
   }

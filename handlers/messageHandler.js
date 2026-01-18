@@ -1,4 +1,5 @@
 const config = require("../config")
+const db = require("../database/db")
 
 module.exports = async (sock, msg) => {
   try {
@@ -13,6 +14,37 @@ module.exports = async (sock, msg) => {
       m.message.conversation ||
       m.message.extendedTextMessage?.text ||
       ""
+
+    // Handle # prefix for notes
+    if (body.startsWith("#")) {
+      const noteName = body.slice(1).trim()
+      
+      if (noteName) {
+        const stmt = db.prepare(`
+          SELECT note_content, created_at
+          FROM notes
+          WHERE group_id = ? AND note_name = ?
+          ORDER BY created_at DESC
+          LIMIT 1
+        `)
+        
+        const note = stmt.get(from, noteName)
+        
+        if (note) {
+          const date = new Date(note.created_at)
+          const dateStr = date.toLocaleString('id-ID')
+          
+          await sock.sendMessage(from, { 
+            text: `📝 *Notes: ${noteName}*\n\n${note.note_content}\n` 
+          })
+        } else {
+          await sock.sendMessage(from, { 
+            text: `❌ Notes "${noteName}" tidak ditemukan.\n\nGunakan !notes untuk melihat daftar notes.` 
+          })
+        }
+      }
+      return
+    }
 
     if (!body.startsWith(config.prefix)) return
 
