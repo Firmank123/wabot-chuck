@@ -10,8 +10,9 @@ module.exports = {
 #<nama-notes> - Tampilkan notes
 !clear <nama-notes> - Hapus notes
 
-📝 *Commands Umum:*
+🎨 *Commands Sticker:*
 !sticker - Kirim atau reply gambar/gif untuk mengubahnya menjadi stiker
+!sticker-tele <link> - Import sticker pack dari Telegram ke WhatsApp
 
     `
     await sock.sendMessage(from, { text })
