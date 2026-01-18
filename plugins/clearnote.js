@@ -2,8 +2,24 @@ const db = require('../database/db')
 
 module.exports = {
   command: "clear",
-  execute: async (sock, msg, args, { from, sender }) => {
+  execute: async (sock, msg, args, { from, sender, isGroup }) => {
     try {
+      // Check if in group
+      if (!isGroup) {
+        await sock.sendMessage(from, { text: "❌ Command ini hanya bisa digunakan di grup!" })
+        return
+      }
+
+      // Check if user is admin
+      const groupMetadata = await sock.groupMetadata(from)
+      const participants = groupMetadata.participants
+      const isAdmin = participants.find(p => p.id === sender)?.admin
+      
+      if (!isAdmin) {
+        await sock.sendMessage(from, { text: "❌ Hanya admin yang dapat menghapus notes!" })
+        return
+      }
+
       // Get note name
       const noteName = args.join(" ").trim()
       

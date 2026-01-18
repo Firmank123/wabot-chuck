@@ -2,8 +2,24 @@ const db = require('../database/db')
 
 module.exports = {
   command: "save",
-  execute: async (sock, msg, args, { from, sender }) => {
+  execute: async (sock, msg, args, { from, sender, isGroup }) => {
     try {
+      // Check if in group
+      if (!isGroup) {
+        await sock.sendMessage(from, { text: "❌ Command ini hanya bisa digunakan di grup!" })
+        return
+      }
+
+      // Check if user is admin
+      const groupMetadata = await sock.groupMetadata(from)
+      const participants = groupMetadata.participants
+      const isAdmin = participants.find(p => p.id === sender)?.admin
+      
+      if (!isAdmin) {
+        await sock.sendMessage(from, { text: "❌ Hanya admin yang dapat menyimpan notes!" })
+        return
+      }
+
       // Check if message is a reply
       const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage
       
