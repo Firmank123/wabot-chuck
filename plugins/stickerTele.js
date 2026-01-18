@@ -73,72 +73,111 @@ module.exports = {
 
         // Filter only static stickers (not animated/video)
         const staticStickers = stickers.filter(s => !s.is_animated && !s.is_video)
-        const maxStickers = Math.min(staticStickers.length, 15)
+        
+        if (staticStickers.length === 0) {
+          await sock.sendMessage(from, { 
+            text: `❌ Pack ini hanya berisi sticker animasi/video yang tidak didukung.` 
+          })
+          return
+        }
+
+        // Send all stickers without limit
+        const totalToSend = staticStickers.length
+        
+        if (totalToSend > 50) {
+          await sock.sendMessage(from, { 
+            text: `⚠️ Pack ini berisi ${totalToSend} sticker statis.\nProses akan memakan waktu ~${Math.ceil(totalToSend / 2)} detik.\n\n⏳ Memulai download dan konversi...` 
+          })
+        }
+
         let successCount = 0
+        const failedCount = []
 
-        for (let i = 0; i < maxStickers; i++) {
-          try {
-            const sticker = staticStickers[i]
-            
-            // Get file info
-            const fileResponse = await axios.get(
-              `https://api.telegram.org/bot${botToken}/getFile?file_id=${sticker.file_id}`
-            )
+        // Download and convert all stickers in parallel batches
+        const batchSize = 5
+        for (let i = 0; i < totalToSend; i += batchSize) {
+          const batch = staticStickers.slice(i, Math.min(i + batchSize, totalToSend))
+          
+          const batchPromises = batch.map(async (sticker, idx) => {
+            const stickerIndex = i + idx
+            try {
+              // Get file info
+              const fileResponse = await axios.get(
+                `https://api.telegram.org/bot${botToken}/getFile?file_id=${sticker.file_id}`
+              )
 
-            if (!fileResponse.data.ok) {
-              console.error(`Failed to get file info for sticker ${i + 1}`)
-              continue
-            }
+              if (!fileResponse.data.ok) {
+                throw new Error('Failed to get file info')
+              }
 
-            const filePath = fileResponse.data.result.file_path
-            const fileUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`
+              const filePath = fileResponse.data.result.file_path
+              const fileUrl = `https://api.telegram.org/file/bot${botToken}/${filePath}`
 
-            console.log(`Downloading sticker ${i + 1}/${maxStickers}`)
-
-            // Download sticker file
-            const stickerResponse = await axios.get(fileUrl, {
-              responseType: 'arraybuffer',
-              timeout: 15000
-            })
-
-            const buffer = Buffer.from(stickerResponse.data)
-
-            // Convert to WhatsApp sticker format
-            const stickerBuffer = await sharp(buffer)
-              .resize(512, 512, {
-                fit: 'contain',
-                background: { r: 0, g: 0, b: 0, alpha: 0 }
+              // Download sticker file
+              const stickerResponse = await axios.get(fileUrl, {
+                responseType: 'arraybuffer',
+                timeout: 15000
               })
-              .webp({ quality: 95 })
-              .toBuffer()
 
-            // Send as sticker
-            await sock.sendMessage(from, {
-              sticker: stickerBuffer
-            })
+              const buffer = Buffer.from(stickerResponse.data)
 
-            successCount++
-            
-            // Delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 1500))
+              // Convert to WhatsApp sticker format
+              const stickerBuffer = await sharp(buffer)
+                .resize(512, 512, {
+                  fit: 'contain',
+                  background: { r: 0, g: 0, b: 0, alpha: 0 }
+                })
+                .webp({ quality: 95 })
+                .toBuffer()
 
-          } catch (stickerError) {
-            console.error(`Error processing sticker ${i + 1}:`, stickerError.message)
-            // Continue with next sticker
+              return { success: true, buffer: stickerBuffer, index: stickerIndex }
+            } catch (error) {
+              console.error(`Error processing sticker ${stickerIndex + 1}:`, error.message)
+              return { success: false, index: stickerIndex }
+            }
+          })
+
+          const results = await Promise.all(batchPromises)
+          
+          // Send successful stickers
+          for (const result of results) {
+            if (result.success) {
+              try {
+                await sock.sendMessage(from, {
+                  sticker: result.buffer
+                })
+                successCount++
+              } catch (sendError) {
+                console.error(`Error sending sticker ${result.index + 1}:`, sendError.message)
+                failedCount.push(result.index + 1)
+              }
+              // Small delay between sends
+              await new Promise(resolve => setTimeout(resolve, 300))
+            } else {
+              failedCount.push(result.index + 1)
+            }
+          }
+
+          // Progress update every batch
+          if (i + batchSize < totalToSend) {
+            console.log(`Progress: ${Math.min(i + batchSize, totalToSend)}/${totalToSend} stickers processed`)
           }
         }
 
         if (successCount > 0) {
           const totalStatic = staticStickers.length
           const animated = stickers.length - staticStickers.length
-          let message = `✅ Berhasil mengirim ${successCount} dari ${maxStickers} sticker!`
+          let message = `✅ Berhasil mengirim ${successCount} sticker!`
           
-          if (totalStatic > 15) {
-            message += `\n\n⚠️ Dibatasi 15 sticker untuk menghindari spam.`
+          if (failedCount.length > 0) {
+            message += `\n❌ ${failedCount.length} sticker gagal.`
           }
+          
           if (animated > 0) {
             message += `\n\n📝 ${animated} sticker animasi dilewati (hanya statis yang didukung).`
           }
+          
+          message += `\n\n💡 Tip: Save sticker favorit dengan long press > Add to favorites di WhatsApp!`
           
           await sock.sendMessage(from, { text: message })
         } else {
